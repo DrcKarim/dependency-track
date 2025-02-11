@@ -307,6 +307,16 @@ public class Component implements Serializable {
     @Pattern(regexp = RegexSequence.Definition.PRINTABLE_CHARS, message = "The SWID tagId may only contain printable characters")
     private String swidTagId;
 
+    //======================================================================I added here the Product ID for the component
+    @Persistent
+    @Index(name = "COMPONENT_PRODUCTID_IDX")
+    @Column(name = "PRODUCT_ID", jdbcType = "VARCHAR", allowsNull = "true")
+    @Size(max = 255)
+    @JsonDeserialize(using = TrimmedStringDeserializer.class)
+    @Pattern(regexp = RegexSequence.Definition.PRINTABLE_CHARS, message = "The productId may only contain printable characters")
+    private String productId;
+
+
     @Persistent
     @Column(name = "INTERNAL", allowsNull = "true")
     @JsonProperty("isInternal")
@@ -679,6 +689,14 @@ public class Component implements Serializable {
             return false;
         }
         return internal;
+    }
+
+    public String getProductId() {
+        return productId;
+    }
+
+    public void setProductId(String productId) {
+        this.productId = productId;
     }
 
     public void setInternal(boolean internal) {

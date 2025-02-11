@@ -201,6 +201,8 @@ public class ComponentResource extends AlpineResource {
                                            @QueryParam("cpe") String cpe,
                                            @Parameter(description = "The swidTagId of the component")
                                            @QueryParam("swidTagId") String swidTagId,
+                                           @Parameter(description = "The productId of the component")
+                                           @QueryParam("productId") String productId,
                                            @Parameter(description = "The project the component belongs to", schema = @Schema(type = "string", format = "uuid"))
                                            @QueryParam("project") @ValidUuid String projectUuid) {
         try (QueryManager qm = new QueryManager(getAlpineRequest())) {
@@ -299,6 +301,7 @@ public class ComponentResource extends AlpineResource {
                 validator.validateProperty(jsonComponent, "classifier"),
                 validator.validateProperty(jsonComponent, "cpe"),
                 validator.validateProperty(jsonComponent, "swidTagId"),
+                validator.validateProperty(jsonComponent, "productId"),
                 validator.validateProperty(jsonComponent, "copyright"),
                 validator.validateProperty(jsonComponent, "md5"),
                 validator.validateProperty(jsonComponent, "sha1"),
@@ -340,6 +343,7 @@ public class ComponentResource extends AlpineResource {
             component.setInternal(InternalComponentIdentificationUtil.isInternalComponent(component));
             component.setCpe(StringUtils.trimToNull(jsonComponent.getCpe()));
             component.setSwidTagId(StringUtils.trimToNull(jsonComponent.getSwidTagId()));
+            component.setProductId(StringUtils.trimToNull(jsonComponent.getProductId()));
             component.setCopyright(StringUtils.trimToNull(jsonComponent.getCopyright()));
             component.setMd5(StringUtils.trimToNull(jsonComponent.getMd5()));
             component.setSha1(StringUtils.trimToNull(jsonComponent.getSha1()));
@@ -412,6 +416,7 @@ public class ComponentResource extends AlpineResource {
                 validator.validateProperty(jsonComponent, "classifier"),
                 validator.validateProperty(jsonComponent, "cpe"),
                 validator.validateProperty(jsonComponent, "swidTagId"),
+                validator.validateProperty(jsonComponent, "productId"), // I added this
                 validator.validateProperty(jsonComponent, "copyright"),
                 validator.validateProperty(jsonComponent, "md5"),
                 validator.validateProperty(jsonComponent, "sha1"),
@@ -442,6 +447,7 @@ public class ComponentResource extends AlpineResource {
                 component.setInternal(InternalComponentIdentificationUtil.isInternalComponent(component));
                 component.setCpe(StringUtils.trimToNull(jsonComponent.getCpe()));
                 component.setSwidTagId(StringUtils.trimToNull(jsonComponent.getSwidTagId()));
+                component.setProductId(StringUtils.trimToNull(jsonComponent.getProductId()));
                 component.setCopyright(StringUtils.trimToNull(jsonComponent.getCopyright()));
                 component.setMd5(StringUtils.trimToNull(jsonComponent.getMd5()));
                 component.setSha1(StringUtils.trimToNull(jsonComponent.getSha1()));

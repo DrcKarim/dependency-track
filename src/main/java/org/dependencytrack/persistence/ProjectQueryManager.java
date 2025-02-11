@@ -519,6 +519,7 @@ final class ProjectQueryManager extends QueryManager implements IQueryManager {
         project.setCpe(transientProject.getCpe());
         project.setPurl(transientProject.getPurl());
         project.setSwidTagId(transientProject.getSwidTagId());
+        project.setProductId(transientProject.getProductId());
         project.setExternalReferences(transientProject.getExternalReferences());
 
         // prevent illegal states of collection projects (must not contain components or services)
@@ -688,6 +689,7 @@ final class ProjectQueryManager extends QueryManager implements IQueryManager {
             project.setCpe(source.getCpe());
             project.setPurl(source.getPurl());
             project.setSwidTagId(source.getSwidTagId());
+            project.setProductId(source.getProductId());
             if (source.getDirectDependencies() != null && includeComponents && includeServices) {
                 project.setDirectDependencies(source.getDirectDependencies());
             }

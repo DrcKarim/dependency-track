@@ -89,6 +89,7 @@ import java.util.UUID;
                 @Persistent(name = "cpe"),
                 @Persistent(name = "purl"),
                 @Persistent(name = "swidTagId"),
+                @Persistent(name = "productId"),
                 @Persistent(name = "uuid"),
                 @Persistent(name = "parent"),
                 @Persistent(name = "children"),
@@ -236,6 +237,16 @@ public class Project implements Serializable {
     @JsonDeserialize(using = TrimmedStringDeserializer.class)
     @Pattern(regexp = RegexSequence.Definition.PRINTABLE_CHARS, message = "The SWID tagId may only contain printable characters")
     private String swidTagId;
+
+    //======================================================================I added here the Product ID
+    @Persistent
+    @Index(name = "PROJECT_PRODUCTID_IDX", unique = "true")
+    @Column(name = "PRODUCT_ID", jdbcType = "VARCHAR", allowsNull = "true")
+    @Size(max = 255)
+    @JsonDeserialize(using = TrimmedStringDeserializer.class)
+    @Pattern(regexp = RegexSequence.Definition.PRINTABLE_CHARS, message = "The productId may only contain printable characters")
+    private String productId;
+
 
     @Persistent(defaultFetchGroup = "true")
     @Column(name = "DIRECT_DEPENDENCIES", jdbcType = "CLOB")
@@ -474,6 +485,14 @@ public class Project implements Serializable {
 
     public void setSwidTagId(String swidTagId) {
         this.swidTagId = swidTagId;
+    }
+
+    public String getProductId() {
+        return productId;
+    }
+
+    public void setProductId(String productId) {
+        this.productId = productId;
     }
 
     public String getDirectDependencies() {

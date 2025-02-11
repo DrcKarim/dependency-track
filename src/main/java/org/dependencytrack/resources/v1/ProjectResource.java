@@ -38,6 +38,20 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.constraints.Size;
+import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PATCH;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException; // I added this recently
+import jakarta.ws.rs.ServerErrorException;
+
 import org.apache.commons.lang3.StringUtils;
 import org.dependencytrack.auth.Permissions;
 import org.dependencytrack.event.CloneProjectEvent;
@@ -53,18 +67,6 @@ import org.dependencytrack.resources.v1.vo.BomUploadResponse;
 import org.dependencytrack.resources.v1.vo.CloneProjectRequest;
 
 import jakarta.validation.Validator;
-import jakarta.ws.rs.ClientErrorException;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.PATCH;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.PUT;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import javax.jdo.FetchGroup;
@@ -359,12 +361,37 @@ public class ProjectResource extends AlpineResource {
                 validator.validateProperty(jsonProject, "cpe"),
                 validator.validateProperty(jsonProject, "purl"),
                 validator.validateProperty(jsonProject, "swidTagId"),
+                validator.validateProperty(jsonProject, "productId"), //I added this for the product ID
                 validator.validateProperty(jsonProject, "accessTeams")
         );
         if (jsonProject.getClassifier() == null) {
             jsonProject.setClassifier(Classifier.APPLICATION);
         }
         try (final var qm = new QueryManager()) {
+
+            try {
+                if (StringUtils.isNotBlank(jsonProject.getProductId()) && qm.doesProductIdExist(jsonProject.getProductId())) {
+                    throw new WebApplicationException(  // ==> Custom exception to send request to the frontend about duplication
+                            Response.status(Response.Status.CONFLICT)
+                                    .entity("Duplicated ID: A project with the specified productId already exists.")
+                                    .build()
+                    );
+                }
+         /*   } catch (PSQLException e) {  // Catch unique constraint violation
+                LOGGER.warn("Database constraint violation: " + e.getMessage());
+                return Response.status(Response.Status.CONFLICT)
+                        .entity("Duplicated ID: A project with the specified productId already exists.")
+                        .build(); */
+            } catch (WebApplicationException e) {
+                LOGGER.warn("Error creating project: " + e.getMessage());
+                return e.getResponse(); //==> We will send the conflict response to the frontend 409
+            } catch (Exception e) {
+                LOGGER.error("Unexpected error creating project", e);
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity("Unexpected error occurred.")
+                        .build();
+            }
+
             final Project createdProject = qm.callInTransaction(() -> {
                 if (qm.doesProjectExist(StringUtils.trimToNull(jsonProject.getName()),
                         StringUtils.trimToNull(jsonProject.getVersion()))) {
@@ -516,7 +543,8 @@ public class ProjectResource extends AlpineResource {
                 validator.validateProperty(jsonProject, "collectionLogic"),
                 validator.validateProperty(jsonProject, "cpe"),
                 validator.validateProperty(jsonProject, "purl"),
-                validator.validateProperty(jsonProject, "swidTagId")
+                validator.validateProperty(jsonProject, "swidTagId"),
+                validator.validateProperty(jsonProject, "productId") //I added this for the product ID
         );
         if (jsonProject.getClassifier() == null) {
             jsonProject.setClassifier(Classifier.APPLICATION);
@@ -536,6 +564,17 @@ public class ProjectResource extends AlpineResource {
                             .entity("Access to the specified project is forbidden")
                             .build());
                 }
+
+                // Validate and update productId
+              /*   if (jsonProject.getProductId() != null) {
+                    if (!qm.doesProductIdExist(jsonProject.getProductId())) {
+                        throw new ClientErrorException(Response
+                                .status(Response.Status.CONFLICT)
+                                .entity("The specified productId does not exist.")
+                                .build());
+                    }
+                    project.setProductId(jsonProject.getProductId());
+                } */
 
                 String name = StringUtils.trimToNull(jsonProject.getName());
                 // Name cannot be empty or null - prevent it
@@ -623,7 +662,8 @@ public class ProjectResource extends AlpineResource {
                 validator.validateProperty(jsonProject, "collectionLogic"),
                 validator.validateProperty(jsonProject, "cpe"),
                 validator.validateProperty(jsonProject, "purl"),
-                validator.validateProperty(jsonProject, "swidTagId")
+                validator.validateProperty(jsonProject, "swidTagId"),
+                validator.validateProperty(jsonProject, "productId") //I added this for the product ID
         );
 
         try (final var qm = new QueryManager()) {
@@ -640,6 +680,17 @@ public class ProjectResource extends AlpineResource {
                             .status(Response.Status.FORBIDDEN)
                             .entity("Access to the specified project is forbidden")
                             .build());
+                }
+
+                // Validate and update productId
+                if (jsonProject.getProductId() != null) {
+                    if (!qm.doesProductIdExist(jsonProject.getProductId())) {
+                        throw new ClientErrorException(Response
+                                .status(Response.Status.CONFLICT)
+                                .entity("The specified productId does not exist.")
+                                .build());
+                    }
+                    project.setProductId(jsonProject.getProductId());
                 }
 
                 // if project is newly set to latest, ensure user has access to current latest version to modify it

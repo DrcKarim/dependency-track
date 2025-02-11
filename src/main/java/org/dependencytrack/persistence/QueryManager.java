@@ -34,6 +34,7 @@ import alpine.server.util.DbUtil;
 import com.github.packageurl.PackageURL;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.ClassUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.datanucleus.api.jdo.JDOQuery;
 import org.dependencytrack.event.IndexEvent;
 import org.dependencytrack.model.AffectedVersionAttribution;
@@ -442,6 +443,28 @@ public class QueryManager extends AlpineQueryManager {
 
     public boolean doesProjectExist(final String name, final String version) {
         return getProjectQueryManager().doesProjectExist(name, version);
+    }
+
+    /**
+     * Checks if a productId already exists in the database.
+     *
+     * @param productId The productId to check
+     * @return true if the productId exists, false otherwise
+     */
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(QueryManager.class);
+    public boolean doesProductIdExist(String productId) {
+        if (StringUtils.isBlank(productId)) {
+            return false;
+        }
+        try {
+            final Query<Long> query = pm.newQuery("SELECT COUNT(p) FROM Project p WHERE p.productId == :productId");
+            query.setParameters(productId);
+            Long count = query.executeResultUnique(Long.class);
+            return count != null && count > 0;
+        } catch (Exception e) {
+            LOGGER.error("Error checking existence of productId: " + productId, e);
+            return false;
+        }
     }
 
     public Tag getTagByName(final String name) {
