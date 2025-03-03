@@ -457,7 +457,26 @@ public class QueryManager extends AlpineQueryManager {
             return false;
         }
         try {
-            final Query<Long> query = pm.newQuery("SELECT COUNT(p) FROM Project p WHERE p.productId == :productId");
+            final Query<?> query = pm.newQuery(JDOQuery.SQL_QUERY_LANGUAGE,
+                    """
+                    SELECT COUNT(*) FROM "PROJECT" WHERE "PRODUCT_ID" = ?
+                    """
+            );
+            query.setParameters(productId);
+            Long count = (Long) query.executeUnique();
+            return count != null && count > 0;
+        } catch (Exception e) {
+            LOGGER.error("Error checking existence of productId: " + productId, e);
+            return false;
+        }
+    }
+   /* private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(QueryManager.class);
+    public boolean doesProductIdExist(String productId) {
+        if (StringUtils.isBlank(productId)) {
+            return false;
+        }
+        try {
+            final Query<Long> query = pm.newQuery(JDOQuery.SQL_QUERY_LANGUAGE,"SELECT COUNT(p) FROM Project p WHERE p.productId == :productId");
             query.setParameters(productId);
             Long count = query.executeResultUnique(Long.class);
             return count != null && count > 0;
@@ -465,7 +484,142 @@ public class QueryManager extends AlpineQueryManager {
             LOGGER.error("Error checking existence of productId: " + productId, e);
             return false;
         }
+    } */
+
+  /* public Project getProjectByProductId(String productId) {
+       return persistenceManager.newQuery(Project.class, "productId == :productId")
+               .executeUnique(productId);
+   }
+
+    public List<Vulnerability> getVulnerabilitiesByProject(Project project) {
+        return persistenceManager.newQuery(Vulnerability.class, "project == :project")
+                .executeList(project);
+    } */
+/////////////////////////////////////////////////START New Query ////////////////////////////////////////////////
+    /**
+     * Retrieves a project ID by its product ID using JDOQuery.
+     *
+     * @param productId The Product ID.
+     * @return The corresponding Project ID or null if not found.
+     */
+    public Long getProjectIdByProductId(String productId) {
+        LOGGER.info("Inside getProjectIdByProductId");
+
+        if (StringUtils.isBlank(productId)) {
+            return null;
+        }
+
+        try {
+            final Query<?> query = pm.newQuery(JDOQuery.SQL_QUERY_LANGUAGE,
+                    """
+                    SELECT "ID" FROM "PROJECT" WHERE "PRODUCT_ID" = ?
+                    """
+            );
+            query.setParameters(new Object[]{productId});
+
+            Object result = query.execute();
+            if (result instanceof Long) {
+                return (Long) result;
+            } else if (result instanceof Object[] array && array.length > 0) {
+                return (Long) array[0];
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error fetching project ID with Product ID: " + productId, e);
+        }
+        return null;
     }
+
+    /**
+     * Retrieves all component IDs belonging to a specific project using JDOQuery.
+     *
+     * @param projectId The project whose component IDs we need.
+     * @return A list of component IDs.
+     */
+    public List<Long> getComponentIdsByProject(Long projectId) {
+        LOGGER.info("Inside getComponentIdsByProject");
+
+        if (projectId == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            final Query<?> query = pm.newQuery(JDOQuery.SQL_QUERY_LANGUAGE,
+                    """
+                    SELECT "ID" FROM "COMPONENT" WHERE "PROJECT_ID" = ?
+                    """
+            );
+            query.setParameters(projectId);
+            return (List<Long>) query.executeList();
+        } catch (Exception e) {
+            LOGGER.error("Error fetching component IDs for project: " + projectId, e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Retrieves vulnerability IDs for a given list of components using JDOQuery.
+     *
+     * @param componentIds The list of component IDs.
+     * @return A list of vulnerability IDs associated with these components.
+     */
+    public List<Long> getVulnerabilityIdsByComponents(List<Long> componentIds) {
+        LOGGER.info("Inside getVulnerabilityIdsByComponents");
+
+        if (componentIds == null || componentIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        try {
+            final Query<?> query = pm.newQuery(JDOQuery.SQL_QUERY_LANGUAGE,
+                    """
+                    SELECT cv."VULNERABILITY_ID" FROM "COMPONENTS_VULNERABILITIES" cv
+                    WHERE cv."COMPONENT_ID" IN (:componentIds)
+                    """
+            );
+
+            query.setNamedParameters(Collections.singletonMap("componentIds", componentIds));
+            return (List<Long>) query.executeList();
+        } catch (Exception e) {
+            LOGGER.error("Error fetching vulnerability IDs for components: " + componentIds, e);
+            return Collections.emptyList();
+        }
+    }
+
+
+    /**
+     * Inserts a list of vulnerability IDs into the COMPONENTS_VULNERABILITIES table for a new component.
+     *
+     * @param componentId The ID of the newly created component.
+     * @param vulnerabilityIds The list of vulnerability IDs to associate with the component.
+     */
+    public void insertVulnerabilitiesForComponent(Long componentId, List<Long> vulnerabilityIds) {
+        LOGGER.info("Inside insertVulnerabilitiesForComponent");
+
+        if (componentId == null || vulnerabilityIds == null || vulnerabilityIds.isEmpty()) {
+            LOGGER.warn("Invalid input: componentId or vulnerabilityIds is null/empty.");
+            return;
+        }
+
+        try {
+            final Query<?> query = pm.newQuery(JDOQuery.SQL_QUERY_LANGUAGE,
+                    """
+                    INSERT INTO "COMPONENTS_VULNERABILITIES" ("COMPONENT_ID", "VULNERABILITY_ID")
+                    VALUES (?, ?)
+                    """
+            );
+
+            for (Long vulnerabilityId : vulnerabilityIds) {
+                query.setParameters(componentId, vulnerabilityId);
+                query.execute();
+            }
+
+            LOGGER.info("Inserted " + vulnerabilityIds.size() + " vulnerabilities for component: " + componentId);
+        } catch (Exception e) {
+            LOGGER.error("Error inserting vulnerabilities for component: " + componentId, e);
+        }
+    }
+
+/////////////////////////////////////////////////END New Query ////////////////////////////////////////////////
 
     public Tag getTagByName(final String name) {
         return getTagQueryManager().getTagByName(name);

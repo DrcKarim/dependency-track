@@ -26,6 +26,8 @@ import org.dependencytrack.model.Component;
 import org.dependencytrack.model.ConfigPropertyConstants;
 import org.dependencytrack.model.VulnerabilityAnalysisLevel;
 import org.dependencytrack.model.VulnerableSoftware;
+
+
 import org.dependencytrack.persistence.QueryManager;
 import org.dependencytrack.search.FuzzyVulnerableSoftwareSearchManager;
 import us.springett.parsers.cpe.CpeParser;
@@ -78,11 +80,12 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
         return component.getCpe() != null || component.getPurl() != null;
     }
 
+
     /**
      * Analyzes a list of Components.
-     * @param components a list of Components
+  //   * @param components a list of Components
      */
-    public void analyze(final List<Component> components) {
+ /*  public void analyze(final List<Component> components) {
         try (QueryManager qm = new QueryManager()) {
             LOGGER.info("Analyzing " + components.size() + " component(s)");
             for (final Component c : components) {
@@ -91,9 +94,39 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
                 versionRangeAnalysis(qm, component);
             }
         }
+    }    */
+
+    /**
+     * Analyzes a list of Components.
+     * If a component has a duplicated Product ID, it triggers a copy and paste vulnerabilities from this Product ID.
+     * Otherwise, it performs a normal version range analysis.
+     *
+     * @param components a list of Components to analyze.
+     */
+    public void analyze(final List<Component> components) {
+        try (QueryManager qm = new QueryManager()) {
+            LOGGER.info("Analyzing " + components.size() + " component(s)");
+            for (final Component c : components) {
+                final Component component = qm.getObjectByUuid(Component.class, c.getUuid()); // Refresh component and attach to current pm.
+                if (component == null) continue;
+
+                if (component.getProductId() != null && qm.doesProductIdExist(component.getProductId()) ) {
+                    LOGGER.info("Inside the filter");
+                    LOGGER.info("Component " + component.getName() + " has a Product ID: " + component.getProductId() + ". Running product analysis.");
+                    productAnalysisTask(qm , component.getProductId(),component); // Run a copy and paste vulnerabilities from the existing component with the same ID
+                } else {
+                    LOGGER.info("Component " + component.getName() + " has a unique Product ID or no Product ID. Running normal analysis.");
+                    versionRangeAnalysis(qm, component); // Run normal analysis
+                }
+
+            }
+        }
     }
 
     private void versionRangeAnalysis(final QueryManager qm, final Component component) {
+
+        LOGGER.info("Inside VersionRangeAnalysis Function");
+
         final boolean fuzzyEnabled = super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_ENABLED) &&
                 (!component.isInternal() || !super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_EXCLUDE_INTERNAL));
         final boolean excludeComponentsWithPurl = super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_EXCLUDE_PURL);
@@ -147,5 +180,36 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
         }
         super.analyzeVersionRange(qm, vsList, parsedCpe, componentVersion, component, vulnerabilityAnalysisLevel);
     }
+
+
+
+    private void productAnalysisTask(final QueryManager qm, final String productId, final Component component) {
+        LOGGER.info("Running Product Analysis for Product ID: " + productId);
+
+        // Step 1: Find a project with this Product ID
+        final Long projectId = qm.getProjectIdByProductId(productId);
+        if (projectId == null) {
+            LOGGER.warn("No project found for Product ID: " + productId);
+            return;
+        }
+
+        // Step 2: Get the list of all components of this project
+        List<Long> componentsId = qm.getComponentIdsByProject(projectId);
+        if (componentsId.isEmpty()) {
+            LOGGER.warn("No components found in project with Product ID: " + productId);
+            return;
+        }
+
+        // Step 3: Fetch vulnerabilities from these components
+        List<Long> vulnerabilitiesId = qm.getVulnerabilityIdsByComponents(componentsId);
+        LOGGER.info("Found " + vulnerabilitiesId.size() + " vulnerabilities for Product ID: " + productId);
+
+
+        // Step 4: Attach vulnerabilities to the new component
+        qm.insertVulnerabilitiesForComponent(component.getId(),vulnerabilitiesId);
+          // if(!vulnerabilitiesId.isEmpty()) {
+         //  }
+      }
+
 
 }

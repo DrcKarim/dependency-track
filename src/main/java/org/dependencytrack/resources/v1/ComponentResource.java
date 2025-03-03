@@ -69,6 +69,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+//Adding this looger
+import alpine.common.logging.Logger;
 /**
  * JAX-RS resources for processing components.
  *
@@ -82,7 +84,8 @@ import java.util.Map;
         @SecurityRequirement(name = "BearerAuth")
 })
 public class ComponentResource extends AlpineResource {
-
+    //I adde this logger
+    private static final Logger LOGGER = Logger.getLogger(ComponentResource.class);
     @GET
     @Path("/project/{uuid}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -285,6 +288,7 @@ public class ComponentResource extends AlpineResource {
     @PermissionRequired(Permissions.Constants.PORTFOLIO_MANAGEMENT)
     public Response createComponent(@Parameter(description = "The UUID of the project to create a component for", schema = @Schema(type = "string", format = "uuid"), required = true)
                                     @PathParam("uuid") @ValidUuid String uuid, Component jsonComponent) {
+        LOGGER.info("Inside createComponent Function");
         final Validator validator = super.getValidator();
         failOnValidationError(
                 validator.validateProperty(jsonComponent, "authors"),

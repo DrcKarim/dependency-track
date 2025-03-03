@@ -388,6 +388,13 @@ public class Component implements Serializable {
     @Order(extensions = @Extension(vendorName = "datanucleus", key = "list-ordering", value = "id ASC"))
     private List<Vulnerability> vulnerabilities;
 
+    //Add PRODUCT_ID to the mapping
+ /*   @Persistent(table = "COMPONENTS_VULNERABILITIES")
+    @Join(column = "COMPONENT_ID")
+    @Element(column = "PRODUCT_ID")
+    @Column(name = "PRODUCT_ID", jdbcType = "VARCHAR", allowsNull = "true")
+    private String productIdVul; */
+
     @Persistent(defaultFetchGroup = "true")
     @Index(name = "COMPONENT_PROJECT_ID_IDX")
     @Column(name = "PROJECT_ID", allowsNull = "false")
@@ -691,6 +698,14 @@ public class Component implements Serializable {
         return internal;
     }
 
+  /*  public String getProductIdVul() {
+        return productIdVul;
+    }
+
+    public void setProductIdVul(String productIdVul) {
+        this.productIdVul = productIdVul;
+    } */
+
     public String getProductId() {
         return productId;
     }
@@ -728,7 +743,7 @@ public class Component implements Serializable {
     }
 
     public String getLicenseExpression() {
-        return licenseExpression;
+           return licenseExpression;
     }
 
     public void setLicenseExpression(String licenseExpression) {
