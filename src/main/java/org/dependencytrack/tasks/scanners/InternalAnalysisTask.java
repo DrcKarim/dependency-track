@@ -36,6 +36,10 @@ import us.springett.parsers.cpe.exceptions.CpeParsingException;
 import java.util.Collections;
 import java.util.List;
 
+//New added import
+import org.dependencytrack.model.Project;
+import org.dependencytrack.model.Vulnerability;
+import org.apache.commons.lang3.StringUtils;
 /**
  * Subscriber task that performs an analysis of component using internal CPE/PURL data.
  *
@@ -113,7 +117,8 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
                 if (component.getProductId() != null && qm.doesProductIdExist(component.getProductId()) ) {
                     LOGGER.info("Inside the filter");
                     LOGGER.info("Component " + component.getName() + " has a Product ID: " + component.getProductId() + ". Running product analysis.");
-                    productAnalysisTask(qm , component.getProductId(),component); // Run a copy and paste vulnerabilities from the existing component with the same ID
+                 //   productAnalysisTask(qm , component.getProductId(),component); // Run a copy and paste vulnerabilities from the existing component with the same ID
+                    assignVulnerabilitiesToComponent(qm , component.getProductId(),component);
                 } else {
                     LOGGER.info("Component " + component.getName() + " has a unique Product ID or no Product ID. Running normal analysis.");
                     versionRangeAnalysis(qm, component); // Run normal analysis
@@ -181,9 +186,74 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
         super.analyzeVersionRange(qm, vsList, parsedCpe, componentVersion, component, vulnerabilityAnalysisLevel);
     }
 
+    public void assignVulnerabilitiesToComponent(QueryManager qm, String productId, Component component) {
+        LOGGER.info("Inside assignVulnerabilitiesToComponent for Product ID: " + productId);
+        if (StringUtils.isBlank(productId) || component == null) {
+            LOGGER.warn("Invalid input: Product ID or Component is null");
+            return;
+        }
+        try {
+            // Step 1: Get the UUID of the project using the Product ID
+            String projectUuid = qm.getProjectUuidByProductId(productId);
+            if (projectUuid == null) {
+                LOGGER.warn("No project found for Product ID: " + productId);
+                return;
+            }
+            // Step 2: Get the project object using the UUID
+            Project project = qm.getProject(projectUuid);
+            if (project == null) {
+                LOGGER.warn("No project object found for UUID: " + projectUuid);
+                return;
+            }
+            // Step 3: Get vulnerabilities linked to the project
+            List<Vulnerability> vulnerabilities = qm.getVulnerabilities(project, false);
+            LOGGER.info("Found " + vulnerabilities.size() + " vulnerabilities for Project UUID: " + projectUuid);
+
+            // Step 4: Get existing vulnerabilities linked to the component
+            List<Vulnerability> existingVulnerabilities = component.getVulnerabilities();
+              // Step 5: Iterate through vulnerabilities and add only if not already linked
+            for (Vulnerability v : vulnerabilities) {
+                if (!existingVulnerabilities.contains(v)) { // Prevent duplicate linking
+                    component.addVulnerability(v);
+                    LOGGER.info("Linked vulnerability " + v.getVulnId() + " to component " + component.getName());
+                } else {
+                    LOGGER.info("Vulnerability " + v.getVulnId() + " already linked to component " + component.getName());
+                }
+            }
+            // Step 6: Save the updated component
+            qm.updateComponent(component, false);
+            LOGGER.info("Updated component " + component.getName() + " with vulnerabilities from Product ID: " + productId);
+
+        /*    try  {
+                for (Vulnerability v : vulnerabilities) {
+                    // Check if the vulnerability is already linked to the component
+                    if (!qm.isVulnerabilityLinkedToComponent(component.getId(), v.getId())) {
+                        qm.linkVulnerabilityToComponent(component.getId(), v.getId());
+                        LOGGER.info("Linked vulnerability " + v.getVulnId() + " to component " + component.getName());
+                    } else {
+                        LOGGER.info("Vulnerability " + v.getVulnId() + " is already linked to component " + component.getName());
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.error("Error assigning vulnerabilities to component: " + component.getName(), e);
+            }  */
+
+            // Step 4: Attach vulnerabilities to the component
+         /*   for (Vulnerability v : vulnerabilities) {
+                component.addVulnerability(v);
+            }
+
+            // Step 5: Save the updated component with vulnerabilities
+            qm.updateComponent(component,false);
+            LOGGER.info("Updated component " + component.getName() + " with vulnerabilities from Project ID: " + productId);
+               */
+        } catch (Exception e) {
+            LOGGER.error("Error assigning vulnerabilities to component", e);
+        }
+    }
 
 
-    private void productAnalysisTask(final QueryManager qm, final String productId, final Component component) {
+    /*private void productAnalysisTask(final QueryManager qm, final String productId, final Component component) {
         LOGGER.info("Running Product Analysis for Product ID: " + productId);
 
         // Step 1: Find a project with this Product ID
@@ -209,7 +279,7 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
         qm.insertVulnerabilitiesForComponent(component.getId(),vulnerabilitiesId);
           // if(!vulnerabilitiesId.isEmpty()) {
          //  }
-      }
+      } */
 
 
 }

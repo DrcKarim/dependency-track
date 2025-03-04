@@ -495,6 +495,99 @@ public class QueryManager extends AlpineQueryManager {
         return persistenceManager.newQuery(Vulnerability.class, "project == :project")
                 .executeList(project);
     } */
+
+/////////////////////////////////////////////////START New Query ////////////////////////////////////////////////
+/////////////////////////////////////////////////START New Query ////////////////////////////////////////////////
+    /**
+     * Retrieves the UUID of a project based on its Product ID.
+     *
+     * @param productId The Product ID of the project.
+     * @return The UUID of the project or null if not found.
+     */
+    public String getProjectUuidByProductId(String productId) {
+        LOGGER.info("Fetching project UUID for Product ID: " + productId);
+
+        try {
+            final Query<?> query = pm.newQuery(JDOQuery.SQL_QUERY_LANGUAGE,
+                    """
+                    SELECT "UUID" FROM "PROJECT" WHERE "PRODUCT_ID" = ?
+                    """
+            );
+            query.setParameters(productId);
+            List<String> results = (List<String>) query.executeList();
+
+            return results.isEmpty() ? null : results.get(0); // Return the first UUID found
+        } catch (Exception e) {
+            LOGGER.error("Error fetching project UUID with Product ID: " + productId, e);
+            return null;
+        }
+    }
+
+/////////////////////////////////////////////////START New Query ////////////////////////////////////////////////
+/////////////////////////////////////////////////START New Query ////////////////////////////////////////////////
+
+    public boolean isVulnerabilityLinkedToComponent(Long componentId, Long vulnerabilityId) {
+        try {
+            final Query<?> query = pm.newQuery(JDOQuery.SQL_QUERY_LANGUAGE,
+                    """
+                    SELECT 1 FROM "COMPONENTS_VULNERABILITIES" 
+                    WHERE "COMPONENT_ID" = ? AND "VULNERABILITY_ID" = ?
+                    """
+            );
+            query.setParameters(componentId, vulnerabilityId);
+            return !((List<?>) query.executeList()).isEmpty();
+        } catch (Exception e) {
+            LOGGER.error("Error checking if vulnerability is linked to component", e);
+            return false;
+        }
+    }
+
+
+    /**
+     * Links a vulnerability to a component by inserting a record into COMPONENTS_VULNERABILITIES.
+     *
+     * @param componentId     The ID of the component.
+     * @param vulnerabilityId The ID of the vulnerability.
+     */
+    public void linkVulnerabilityToComponent(Long componentId, Long vulnerabilityId) {
+        LOGGER.info("Linking vulnerability ID " + vulnerabilityId + " to component ID " + componentId);
+
+        if (componentId == null || vulnerabilityId == null) {
+            LOGGER.warn("Component ID or Vulnerability ID is null. Skipping linking.");
+            return;
+        }
+
+        try {
+            // Use a direct SQL execution for INSERT
+            pm.currentTransaction().begin();
+            pm.newQuery("javax.jdo.query.SQL",
+                            "INSERT INTO COMPONENTS_VULNERABILITIES (COMPONENT_ID, VULNERABILITY_ID) VALUES (?, ?)")
+                    .setParameters(componentId, vulnerabilityId)
+                    .execute();
+            pm.currentTransaction().commit();
+
+            LOGGER.info("Successfully linked vulnerability ID " + vulnerabilityId + " to component ID " + componentId);
+        } catch (Exception e) {
+            pm.currentTransaction().rollback();
+            LOGGER.error("Error linking vulnerability to component: " + e.getMessage(), e);
+        }
+    }
+
+  /*  public void linkVulnerabilityToComponent(Long componentId, Long vulnerabilityId) {
+        try {
+            final Query<?> query = pm.newQuery(JDOQuery.SQL_QUERY_LANGUAGE,
+                    """
+                    INSERT INTO "COMPONENTS_VULNERABILITIES" ("COMPONENT_ID", "VULNERABILITY_ID") VALUES (?, ?)
+                    """
+            );
+            query.setParameters(componentId, vulnerabilityId);
+            query.execute();
+        } catch (Exception e) {
+            LOGGER.error("Error linking vulnerability to component", e);
+        }
+    } */
+
+/////////////////////////////////////////////////START New Query ////////////////////////////////////////////////
 /////////////////////////////////////////////////START New Query ////////////////////////////////////////////////
     /**
      * Retrieves a project ID by its product ID using JDOQuery.
@@ -528,6 +621,7 @@ public class QueryManager extends AlpineQueryManager {
         }
         return null;
     }
+
 
     /**
      * Retrieves all component IDs belonging to a specific project using JDOQuery.
