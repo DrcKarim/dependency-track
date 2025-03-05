@@ -40,6 +40,9 @@ import java.util.List;
 import org.dependencytrack.model.Project;
 import org.dependencytrack.model.Vulnerability;
 import org.apache.commons.lang3.StringUtils;
+
+import java.util.Set;
+import java.util.HashSet;
 /**
  * Subscriber task that performs an analysis of component using internal CPE/PURL data.
  *
@@ -209,8 +212,27 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
             List<Vulnerability> vulnerabilities = qm.getVulnerabilities(project, false);
             LOGGER.info("Found " + vulnerabilities.size() + " vulnerabilities for Project UUID: " + projectUuid);
 
+            // Step 4: Create a Set to ensure uniqueness and add vulnerabilities
+            Set<Vulnerability> uniqueVulnerabilities = new HashSet<>(vulnerabilities);
+            LOGGER.info("Filtered to " + uniqueVulnerabilities.size() + " unique vulnerabilities");
+
+            // Step 5: Assign only unique vulnerabilities to the component
+          /*  component.getVulnerabilities().addAll(uniqueVulnerabilities);
+            LOGGER.info("Assigned " + uniqueVulnerabilities.size() + " unique vulnerabilities to component " + component.getName());
+
+            // Step 6: Save the updated component
+            qm.updateComponent(component, false);
+            LOGGER.info("Updated component " + component.getName() + " with vulnerabilities from Product ID: " + productId);
+               */
+
+            for (Vulnerability v : uniqueVulnerabilities) {
+                qm.addVulnerability(v, component, AnalyzerIdentity.INTERNAL_ANALYZER);
+            }
+
+            LOGGER.info("Successfully linked " + uniqueVulnerabilities.size() + " vulnerabilities to component " + component.getName());
+
             // Step 4: Get existing vulnerabilities linked to the component
-            List<Vulnerability> existingVulnerabilities = component.getVulnerabilities();
+          /*  List<Vulnerability> existingVulnerabilities = component.getVulnerabilities();
               // Step 5: Iterate through vulnerabilities and add only if not already linked
             for (Vulnerability v : vulnerabilities) {
                 if (!existingVulnerabilities.contains(v)) { // Prevent duplicate linking
@@ -219,10 +241,7 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
                 } else {
                     LOGGER.info("Vulnerability " + v.getVulnId() + " already linked to component " + component.getName());
                 }
-            }
-            // Step 6: Save the updated component
-            qm.updateComponent(component, false);
-            LOGGER.info("Updated component " + component.getName() + " with vulnerabilities from Product ID: " + productId);
+             } */
 
         /*    try  {
                 for (Vulnerability v : vulnerabilities) {
