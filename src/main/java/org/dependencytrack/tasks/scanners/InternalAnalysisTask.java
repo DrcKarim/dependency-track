@@ -102,6 +102,7 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
             }
         }
     }    */
+    //   productAnalysisTask(qm , component.getProductId(),component); // Run a copy and paste vulnerabilities from the existing component with the same ID
 
     /**
      * Analyzes a list of Components.
@@ -116,11 +117,9 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
             for (final Component c : components) {
                 final Component component = qm.getObjectByUuid(Component.class, c.getUuid()); // Refresh component and attach to current pm.
                 if (component == null) continue;
-
                 if (component.getProductId() != null && qm.doesProductIdExist(component.getProductId()) ) {
                     LOGGER.info("Inside the filter");
                     LOGGER.info("Component " + component.getName() + " has a Product ID: " + component.getProductId() + ". Running product analysis.");
-                 //   productAnalysisTask(qm , component.getProductId(),component); // Run a copy and paste vulnerabilities from the existing component with the same ID
                     assignVulnerabilitiesToComponent(qm , component.getProductId(),component);
                 } else {
                     LOGGER.info("Component " + component.getName() + " has a unique Product ID or no Product ID. Running normal analysis.");
@@ -208,97 +207,42 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
                 LOGGER.warn("No project object found for UUID: " + projectUuid);
                 return;
             }
-            // Step 3: Get vulnerabilities linked to the project
-            List<Vulnerability> vulnerabilities = qm.getVulnerabilities(project, false);
-            LOGGER.info("Found " + vulnerabilities.size() + " vulnerabilities for Project UUID: " + projectUuid);
 
-            // Step 4: Create a Set to ensure uniqueness and add vulnerabilities
-            Set<Vulnerability> uniqueVulnerabilities = new HashSet<>(vulnerabilities);
-            LOGGER.info("Filtered to " + uniqueVulnerabilities.size() + " unique vulnerabilities");
+            // Step 3: Get vulnerabilities linked to the project (all vulnerabilities the product has)
+            List<Vulnerability> projectVulnerabilities = qm.getVulnerabilities(project, false);
+            Set<Vulnerability> projectVulnSet = new HashSet<>(projectVulnerabilities);
+            LOGGER.info("Found " + projectVulnerabilities.size() + " vulnerabilities for Project UUID: " + projectUuid);
 
-            // Step 5: Assign only unique vulnerabilities to the component
-          /*  component.getVulnerabilities().addAll(uniqueVulnerabilities);
-            LOGGER.info("Assigned " + uniqueVulnerabilities.size() + " unique vulnerabilities to component " + component.getName());
+            // Step 4: Get vulnerabilities already assigned to the component
+            List<Vulnerability> componentVulnerabilities = qm.getAllVulnerabilities(component, false);
+            Set<Vulnerability> componentVulnSet = new HashSet<>(componentVulnerabilities);
+            LOGGER.info("Component already has " + componentVulnerabilities.size() + " vulnerabilities");
 
-            // Step 6: Save the updated component
-            qm.updateComponent(component, false);
-            LOGGER.info("Updated component " + component.getName() + " with vulnerabilities from Product ID: " + productId);
-               */
+            // Step 5: Find the vulnerabilities that are in projectVulnSet but NOT in componentVulnSet
+            Set<Vulnerability> newVulnerabilities = new HashSet<>(projectVulnSet); // Copy of project vulnerabilities
+            newVulnerabilities.removeAll(componentVulnSet); // Remove already assigned vulnerabilities
 
-            for (Vulnerability v : uniqueVulnerabilities) {
-                qm.addVulnerability(v, component, AnalyzerIdentity.INTERNAL_ANALYZER);
-            }
+            LOGGER.info("Adding " + newVulnerabilities.size() + " new vulnerabilities to component " + component.getName());
 
-            LOGGER.info("Successfully linked " + uniqueVulnerabilities.size() + " vulnerabilities to component " + component.getName());
-
-            // Step 4: Get existing vulnerabilities linked to the component
-          /*  List<Vulnerability> existingVulnerabilities = component.getVulnerabilities();
-              // Step 5: Iterate through vulnerabilities and add only if not already linked
-            for (Vulnerability v : vulnerabilities) {
-                if (!existingVulnerabilities.contains(v)) { // Prevent duplicate linking
-                    component.addVulnerability(v);
-                    LOGGER.info("Linked vulnerability " + v.getVulnId() + " to component " + component.getName());
-                } else {
-                    LOGGER.info("Vulnerability " + v.getVulnId() + " already linked to component " + component.getName());
+            // Step 6: Assign only the new vulnerabilities to the component
+            int addedCount = 0;
+            for (Vulnerability v : newVulnerabilities) {
+                // Ensure we use the existing vulnerability object if already in the database
+                Vulnerability existingVulnerability = qm.getVulnerabilityByVulnId(v.getSource(), v.getVulnId());
+                if (existingVulnerability == null) {
+                    LOGGER.info("Adding new vulnerability to DB: " + v.getVulnId());
+                    existingVulnerability = qm.synchronizeVulnerability(v, true);
                 }
-             } */
 
-        /*    try  {
-                for (Vulnerability v : vulnerabilities) {
-                    // Check if the vulnerability is already linked to the component
-                    if (!qm.isVulnerabilityLinkedToComponent(component.getId(), v.getId())) {
-                        qm.linkVulnerabilityToComponent(component.getId(), v.getId());
-                        LOGGER.info("Linked vulnerability " + v.getVulnId() + " to component " + component.getName());
-                    } else {
-                        LOGGER.info("Vulnerability " + v.getVulnId() + " is already linked to component " + component.getName());
-                    }
-                }
-            } catch (Exception e) {
-                LOGGER.error("Error assigning vulnerabilities to component: " + component.getName(), e);
-            }  */
-
-            // Step 4: Attach vulnerabilities to the component
-         /*   for (Vulnerability v : vulnerabilities) {
-                component.addVulnerability(v);
+                qm.addVulnerability(existingVulnerability, component, AnalyzerIdentity.INTERNAL_ANALYZER);
+                addedCount++;
             }
+            LOGGER.info("Successfully linked " + addedCount + " new vulnerabilities to component " + component.getName());
 
-            // Step 5: Save the updated component with vulnerabilities
-            qm.updateComponent(component,false);
-            LOGGER.info("Updated component " + component.getName() + " with vulnerabilities from Project ID: " + productId);
-               */
         } catch (Exception e) {
             LOGGER.error("Error assigning vulnerabilities to component", e);
-        }
-    }
+         }
 
-
-    /*private void productAnalysisTask(final QueryManager qm, final String productId, final Component component) {
-        LOGGER.info("Running Product Analysis for Product ID: " + productId);
-
-        // Step 1: Find a project with this Product ID
-        final Long projectId = qm.getProjectIdByProductId(productId);
-        if (projectId == null) {
-            LOGGER.warn("No project found for Product ID: " + productId);
-            return;
-        }
-
-        // Step 2: Get the list of all components of this project
-        List<Long> componentsId = qm.getComponentIdsByProject(projectId);
-        if (componentsId.isEmpty()) {
-            LOGGER.warn("No components found in project with Product ID: " + productId);
-            return;
-        }
-
-        // Step 3: Fetch vulnerabilities from these components
-        List<Long> vulnerabilitiesId = qm.getVulnerabilityIdsByComponents(componentsId);
-        LOGGER.info("Found " + vulnerabilitiesId.size() + " vulnerabilities for Product ID: " + productId);
-
-
-        // Step 4: Attach vulnerabilities to the new component
-        qm.insertVulnerabilitiesForComponent(component.getId(),vulnerabilitiesId);
-          // if(!vulnerabilitiesId.isEmpty()) {
-         //  }
-      } */
-
+     }
 
 }
