@@ -16,20 +16,23 @@
  * SPDX-License-Identifier: Apache-2.0
  * Copyright (c) OWASP Foundation. All Rights Reserved.
  */
-package org.dependencytrack.tasks.scanners;
+package org.dependencytrack.event;
+
+import alpine.event.framework.Event;
+import org.dependencytrack.model.Component;
+import org.dependencytrack.model.VulnerabilityAnalysisLevel;
+
+import java.util.List;
 
 /**
- * Specifies identities of all supported analyzers.
+ * Defines an event used to start a product analysis which leverages the VulnerableSoftware model.
  *
- * @since 4.0.0
+ * @author Steve Springett
+ * @since 3.6.0
  */
-public enum AnalyzerIdentity {
-    INTERNAL_ANALYZER,
-    PRODUCT_ANALYZER,
-    OSSINDEX_ANALYZER,
-    NPM_AUDIT_ANALYZER,
-    VULNDB_ANALYZER,
-    SNYK_ANALYZER,
-    TRIVY_ANALYZER,
-    NONE
+public record ProductAnalysisEvent(
+        List<Component> components,
+        VulnerabilityAnalysisLevel analysisLevel) implements Event {
 }
+
+

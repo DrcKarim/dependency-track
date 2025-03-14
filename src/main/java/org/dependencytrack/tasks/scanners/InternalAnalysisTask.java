@@ -37,12 +37,12 @@ import java.util.Collections;
 import java.util.List;
 
 //New added import
-import org.dependencytrack.model.Project;
-import org.dependencytrack.model.Vulnerability;
-import org.apache.commons.lang3.StringUtils;
+// import org.dependencytrack.model.Project;
+// import org.dependencytrack.model.Vulnerability;
+// import org.apache.commons.lang3.StringUtils;
 
-import java.util.Set;
-import java.util.HashSet;
+// import java.util.Set;
+// import java.util.HashSet;
 /**
  * Subscriber task that performs an analysis of component using internal CPE/PURL data.
  *
@@ -117,14 +117,15 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
             for (final Component c : components) {
                 final Component component = qm.getObjectByUuid(Component.class, c.getUuid()); // Refresh component and attach to current pm.
                 if (component == null) continue;
-                if (component.getProductId() != null && qm.doesProductIdExist(component.getProductId()) ) {
+                versionRangeAnalysis(qm, component);
+           /*     if (component.getProductId() != null && qm.doesProductIdExist(component.getProductId()) ) {
                     LOGGER.info("Inside the filter");
                     LOGGER.info("Component " + component.getName() + " has a Product ID: " + component.getProductId() + ". Running product analysis.");
                     assignVulnerabilitiesToComponent(qm , component.getProductId(),component);
                 } else {
                     LOGGER.info("Component " + component.getName() + " has a unique Product ID or no Product ID. Running normal analysis.");
                     versionRangeAnalysis(qm, component); // Run normal analysis
-                }
+                } */
 
             }
         }
@@ -188,6 +189,7 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
         super.analyzeVersionRange(qm, vsList, parsedCpe, componentVersion, component, vulnerabilityAnalysisLevel);
     }
 
+    /*
     public void assignVulnerabilitiesToComponent(QueryManager qm, String productId, Component component) {
         LOGGER.info("Inside assignVulnerabilitiesToComponent for Product ID: " + productId);
         if (StringUtils.isBlank(productId) || component == null) {
@@ -243,6 +245,6 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
             LOGGER.error("Error assigning vulnerabilities to component", e);
          }
 
-     }
+     } */
 
 }
