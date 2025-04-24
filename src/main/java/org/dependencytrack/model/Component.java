@@ -88,6 +88,7 @@ import java.util.UUID;
                 @Persistent(name = "name"),
                 @Persistent(name = "version"),
                 @Persistent(name = "cpe"),
+                @Persistent(name = "cpe2"),
                 @Persistent(name = "purl"),
                 @Persistent(name = "purlCoordinates"),
                 @Persistent(name = "uuid")
@@ -283,6 +284,14 @@ public class Component implements Serializable {
     //Patterns obtained from https://csrc.nist.gov/schema/cpe/2.3/cpe-naming_2.3.xsd
     @Pattern(regexp = "(cpe:2\\.3:[aho\\*\\-](:(((\\?*|\\*?)([a-zA-Z0-9\\-\\._]|(\\\\[\\\\\\*\\?!\"#$$%&'\\(\\)\\+,/:;<=>@\\[\\]\\^`\\{\\|}~]))+(\\?*|\\*?))|[\\*\\-])){5}(:(([a-zA-Z]{2,3}(-([a-zA-Z]{2}|[0-9]{3}))?)|[\\*\\-]))(:(((\\?*|\\*?)([a-zA-Z0-9\\-\\._]|(\\\\[\\\\\\*\\?!\"#$$%&'\\(\\)\\+,/:;<=>@\\[\\]\\^`\\{\\|}~]))+(\\?*|\\*?))|[\\*\\-])){4})|([c][pP][eE]:/[AHOaho]?(:[A-Za-z0-9\\._\\-~%]*){0,6})", message = "The CPE must conform to the CPE v2.2 or v2.3 specification defined by NIST")
     private String cpe;
+//====================================================Adding New CPE Here =====================================================
+    @Persistent
+    @Index(name = "COMPONENT_CPE2_IDX")
+    @Size(max = 255)
+    @JsonDeserialize(using = TrimmedStringDeserializer.class)
+    //Patterns obtained from https://csrc.nist.gov/schema/cpe/2.3/cpe-naming_2.3.xsd
+    @Pattern(regexp = "(cpe:2\\.3:[aho\\*\\-](:(((\\?*|\\*?)([a-zA-Z0-9\\-\\._]|(\\\\[\\\\\\*\\?!\"#$$%&'\\(\\)\\+,/:;<=>@\\[\\]\\^`\\{\\|}~]))+(\\?*|\\*?))|[\\*\\-])){5}(:(([a-zA-Z]{2,3}(-([a-zA-Z]{2}|[0-9]{3}))?)|[\\*\\-]))(:(((\\?*|\\*?)([a-zA-Z0-9\\-\\._]|(\\\\[\\\\\\*\\?!\"#$$%&'\\(\\)\\+,/:;<=>@\\[\\]\\^`\\{\\|}~]))+(\\?*|\\*?))|[\\*\\-])){4})|([c][pP][eE]:/[AHOaho]?(:[A-Za-z0-9\\._\\-~%]*){0,6})", message = "The CPE must conform to the CPE v2.2 or v2.3 specification defined by NIST")
+    private String cpe2;
 
     @Persistent(defaultFetchGroup = "true")
     @Index(name = "COMPONENT_PURL_IDX")
@@ -625,6 +634,14 @@ public class Component implements Serializable {
 
     public void setCpe(String cpe) {
         this.cpe = StringUtils.abbreviate(cpe, 255);
+    }
+//===========================Here I added CPE2 =================
+    public String getCpe2() {
+        return cpe2;
+    }
+
+    public void setCpe2(String cpe2) {
+        this.cpe2 = StringUtils.abbreviate(cpe2, 255);
     }
 
     @JsonSerialize(using = CustomPackageURLSerializer.class)

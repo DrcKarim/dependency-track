@@ -304,6 +304,7 @@ public class ComponentResource extends AlpineResource {
                 validator.validateProperty(jsonComponent, "filename"),
                 validator.validateProperty(jsonComponent, "classifier"),
                 validator.validateProperty(jsonComponent, "cpe"),
+                validator.validateProperty(jsonComponent, "cpe2"),
                 validator.validateProperty(jsonComponent, "swidTagId"),
                 validator.validateProperty(jsonComponent, "productId"),
                 validator.validateProperty(jsonComponent, "copyright"),
@@ -346,6 +347,7 @@ public class ComponentResource extends AlpineResource {
             component.setPurl(jsonComponent.getPurl());
             component.setInternal(InternalComponentIdentificationUtil.isInternalComponent(component));
             component.setCpe(StringUtils.trimToNull(jsonComponent.getCpe()));
+            component.setCpe2(StringUtils.trimToNull(jsonComponent.getCpe2()));
             component.setSwidTagId(StringUtils.trimToNull(jsonComponent.getSwidTagId()));
             component.setProductId(StringUtils.trimToNull(jsonComponent.getProductId()));
             component.setCopyright(StringUtils.trimToNull(jsonComponent.getCopyright()));
@@ -419,6 +421,7 @@ public class ComponentResource extends AlpineResource {
                 validator.validateProperty(jsonComponent, "filename"),
                 validator.validateProperty(jsonComponent, "classifier"),
                 validator.validateProperty(jsonComponent, "cpe"),
+                validator.validateProperty(jsonComponent, "cpe2"),
                 validator.validateProperty(jsonComponent, "swidTagId"),
                 validator.validateProperty(jsonComponent, "productId"), // I added this
                 validator.validateProperty(jsonComponent, "copyright"),
@@ -450,6 +453,7 @@ public class ComponentResource extends AlpineResource {
                 component.setPurl(jsonComponent.getPurl());
                 component.setInternal(InternalComponentIdentificationUtil.isInternalComponent(component));
                 component.setCpe(StringUtils.trimToNull(jsonComponent.getCpe()));
+                component.setCpe2(StringUtils.trimToNull(jsonComponent.getCpe2()));
                 component.setSwidTagId(StringUtils.trimToNull(jsonComponent.getSwidTagId()));
                 component.setProductId(StringUtils.trimToNull(jsonComponent.getProductId()));
                 component.setCopyright(StringUtils.trimToNull(jsonComponent.getCopyright()));

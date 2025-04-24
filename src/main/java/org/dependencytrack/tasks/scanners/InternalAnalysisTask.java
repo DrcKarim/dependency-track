@@ -131,53 +131,91 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
         }
     }
 
-    private void versionRangeAnalysis(final QueryManager qm, final Component component) {
-
+ /* private void versionRangeAnalysis(final QueryManager qm, final Component component) {
         LOGGER.info("Inside VersionRangeAnalysis Function");
 
-        final boolean fuzzyEnabled = super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_ENABLED) &&
-                (!component.isInternal() || !super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_EXCLUDE_INTERNAL));
+        // Analyze first CPE
+        analyzeSingleCpe(qm, component, component.getCpe(), "CPE1");
+
+        // Analyze second CPE
+        analyzeSingleCpe(qm, component, component.getCpe2(), "CPE2");
+
+        // Analyze combination: CPE1 + Running On/With CPE2
+        analyzeCpeWithRunningOn(qm, component);
+    }*/
+
+    private void versionRangeAnalysis(final QueryManager qm, final Component component) {
+        LOGGER.info("Inside VersionRangeAnalysis Function");
+
+        final boolean hasCpe1 = component.getCpe() != null;
+        final boolean hasCpe2 = component.getCpe2() != null;
+
+        if (hasCpe1 && hasCpe2) {
+            // Combined logic when both CPEs are defined
+            analyzeCpeWithRunningOn(qm, component);
+        } else if (hasCpe1) {
+            // Fallback to individual analysis if only CPE1 is provided
+            analyzeSingleCpe(qm, component, component.getCpe(), "CPE1");
+        } else if (hasCpe2) {
+            // Optional: analyze CPE2 alone
+            analyzeSingleCpe(qm, component, component.getCpe2(), "CPE2");
+        }
+    }
+
+
+    private void analyzeSingleCpe(final QueryManager qm, final Component component, final String cpe, final String label) {
+        if (cpe == null && component.getPurl() == null) {
+            LOGGER.debug(label + " is null and no PURL available for component " + component.getName());
+            return;
+        }
+
+        final boolean fuzzyEnabled = super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_ENABLED)
+                && (!component.isInternal() || !super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_EXCLUDE_INTERNAL));
         final boolean excludeComponentsWithPurl = super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_EXCLUDE_PURL);
+
         us.springett.parsers.cpe.Cpe parsedCpe = null;
-        if (component.getCpe() != null) {
+        if (cpe != null) {
             try {
-                parsedCpe = CpeParser.parse(component.getCpe());
+                parsedCpe = CpeParser.parse(cpe);
             } catch (CpeParsingException e) {
-                LOGGER.warn("An error occurred while parsing: " + component.getCpe() + " - The CPE is invalid and will be discarded. " + e.getMessage());
+                LOGGER.warn("An error occurred while parsing " + label + ": " + cpe + " - It will be skipped. " + e.getMessage());
             }
         }
+
         List<VulnerableSoftware> vsList = Collections.emptyList();
         String componentVersion;
+
         if (parsedCpe != null) {
             componentVersion = parsedCpe.getVersion();
         } else if (component.getPurl() != null) {
             componentVersion = component.getPurl().getVersion();
         } else {
-            // Catch cases where the CPE couldn't be parsed and no PURL exists.
-            // Should be rare, but could lead to NPEs later.
-            LOGGER.debug("Neither CPE nor PURL of component " + component.getUuid() + " provide a version - skipping analysis");
+            LOGGER.debug("Neither " + label + " nor PURL of component " + component.getUuid() + " provide a version - skipping analysis");
             return;
         }
-        // In some cases, componentVersion may be null, such as when a Package URL does not have a version specified
+
         if (componentVersion == null) {
             return;
         }
-        // https://github.com/DependencyTrack/dependency-track/issues/1574
-        // Some ecosystems use the "v" version prefix (e.g. v1.2.3) for their components.
-        // However, both the NVD and GHSA store versions without that prefix.
-        // For this reason, the prefix is stripped before running analyzeVersionRange.
-        //
-        // REVISIT THIS WHEN ADDING NEW VULNERABILITY SOURCES!
+
+        // Normalize versions starting with 'v'
         if (componentVersion.length() > 1 && componentVersion.startsWith("v")) {
             if (componentVersion.matches("v0.0.0-\\d{14}-[a-f0-9]{12}")) {
-                componentVersion = componentVersion.substring(7,11) + "-" + componentVersion.substring(11,13) + "-" + componentVersion.substring(13,15);
+                componentVersion = componentVersion.substring(7, 11) + "-" +
+                        componentVersion.substring(11, 13) + "-" +
+                        componentVersion.substring(13, 15);
             } else {
                 componentVersion = componentVersion.substring(1);
             }
         }
 
         if (parsedCpe != null) {
-            vsList = qm.getAllVulnerableSoftware(parsedCpe.getPart().getAbbreviation(), parsedCpe.getVendor(), parsedCpe.getProduct(), component.getPurl());
+            vsList = qm.getAllVulnerableSoftware(
+                    parsedCpe.getPart().getAbbreviation(),
+                    parsedCpe.getVendor(),
+                    parsedCpe.getProduct(),
+                    component.getPurl()
+            );
         } else {
             vsList = qm.getAllVulnerableSoftware(null, null, null, component.getPurl());
         }
@@ -186,65 +224,51 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
             FuzzyVulnerableSoftwareSearchManager fm = new FuzzyVulnerableSoftwareSearchManager(excludeComponentsWithPurl);
             vsList = fm.fuzzyAnalysis(qm, component, parsedCpe);
         }
+
         super.analyzeVersionRange(qm, vsList, parsedCpe, componentVersion, component, vulnerabilityAnalysisLevel);
     }
 
-    /*
-    public void assignVulnerabilitiesToComponent(QueryManager qm, String productId, Component component) {
-        LOGGER.info("Inside assignVulnerabilitiesToComponent for Product ID: " + productId);
-        if (StringUtils.isBlank(productId) || component == null) {
-            LOGGER.warn("Invalid input: Product ID or Component is null");
+
+
+    private void analyzeCpeWithRunningOn(final QueryManager qm, final Component component) {
+        LOGGER.info("Analyzing CPE1 + Running On (CPE2)");
+        final String cpe1 = component.getCpe();
+        final String cpe2 = component.getCpe2();
+        if (cpe1 == null || cpe2 == null) {
+            LOGGER.info("Both CPE1 and CPE2 must be provided for running-with analysis.");
             return;
         }
         try {
-            // Step 1: Get the UUID of the project using the Product ID
-            String projectUuid = qm.getProjectUuidByProductId(productId);
-            if (projectUuid == null) {
-                LOGGER.warn("No project found for Product ID: " + productId);
-                return;
+            us.springett.parsers.cpe.Cpe parsedCpe1 = CpeParser.parse(cpe1);
+            us.springett.parsers.cpe.Cpe parsedCpe2 = CpeParser.parse(cpe2);
+
+            String part1 = parsedCpe1.getPart().getAbbreviation(); // usually "a"
+            String vendor1 = parsedCpe1.getVendor();
+            String product1 = parsedCpe1.getProduct();
+            String version1 = parsedCpe1.getVersion();
+
+            String product2 = parsedCpe2.getProduct();
+            //  Fetch vulnerable software matching CPE1 (main match)
+            List<VulnerableSoftware> allCpe1Matches = qm.getAllVulnerableSoftware(part1, vendor1, product1, component.getPurl());
+            // Filter by targetSw or targetHw containing CPE2's product
+            List<VulnerableSoftware> matchedVulnSoftware = allCpe1Matches.stream()
+                    .filter(vs -> {
+                        String targetSw = vs.getTargetSw();
+                        String targetHw = vs.getTargetHw();
+                        return (targetSw != null && targetSw.toLowerCase().contains(product2.toLowerCase())) ||
+                                (targetHw != null && targetHw.toLowerCase().contains(product2.toLowerCase()));
+                    })
+                    .toList();
+            if (matchedVulnSoftware.isEmpty()) {
+                LOGGER.info("No vulnerabilities matched for CPE1 + Running On/With CPE2.");
             }
-            // Step 2: Get the project object using the UUID
-            Project project = qm.getProject(projectUuid);
-            if (project == null) {
-                LOGGER.warn("No project object found for UUID: " + projectUuid);
-                return;
-            }
 
-            // Step 3: Get vulnerabilities linked to the project (all vulnerabilities the product has)
-            List<Vulnerability> projectVulnerabilities = qm.getVulnerabilities(project, false);
-            Set<Vulnerability> projectVulnSet = new HashSet<>(projectVulnerabilities);
-            LOGGER.info("Found " + projectVulnerabilities.size() + " vulnerabilities for Project UUID: " + projectUuid);
+            // Reuse existing logic
+            super.analyzeVersionRange(qm, matchedVulnSoftware, parsedCpe1, version1, component, vulnerabilityAnalysisLevel);
 
-            // Step 4: Get vulnerabilities already assigned to the component
-            List<Vulnerability> componentVulnerabilities = qm.getAllVulnerabilities(component, false);
-            Set<Vulnerability> componentVulnSet = new HashSet<>(componentVulnerabilities);
-            LOGGER.info("Component already has " + componentVulnerabilities.size() + " vulnerabilities");
-
-            // Step 5: Find the vulnerabilities that are in projectVulnSet but NOT in componentVulnSet
-            Set<Vulnerability> newVulnerabilities = new HashSet<>(projectVulnSet); // Copy of project vulnerabilities
-            newVulnerabilities.removeAll(componentVulnSet); // Remove already assigned vulnerabilities
-
-            LOGGER.info("Adding " + newVulnerabilities.size() + " new vulnerabilities to component " + component.getName());
-
-            // Step 6: Assign only the new vulnerabilities to the component
-            int addedCount = 0;
-            for (Vulnerability v : newVulnerabilities) {
-                // Ensure we use the existing vulnerability object if already in the database
-                Vulnerability existingVulnerability = qm.getVulnerabilityByVulnId(v.getSource(), v.getVulnId());
-                if (existingVulnerability == null) {
-                    LOGGER.info("Adding new vulnerability to DB: " + v.getVulnId());
-                    existingVulnerability = qm.synchronizeVulnerability(v, true);
-                }
-
-                qm.addVulnerability(existingVulnerability, component, AnalyzerIdentity.INTERNAL_ANALYZER);
-                addedCount++;
-            }
-            LOGGER.info("Successfully linked " + addedCount + " new vulnerabilities to component " + component.getName());
-
-        } catch (Exception e) {
-            LOGGER.error("Error assigning vulnerabilities to component", e);
-         }
-
-     } */
+        } catch (CpeParsingException e) {
+            LOGGER.warn("Invalid CPEs provided. Skipping: " + e.getMessage());
+        }
+    }
 
 }
